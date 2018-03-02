@@ -1,6 +1,7 @@
 library(jsonlite)
 library(tidyverse)
 library(data.table)
+library(stringr)
 
 startyear <- 2017
 
@@ -31,20 +32,48 @@ BindFullPBP <- function(dt){
   dt2 <- rbindlist(dtlist)
 }
 
-testid <- 261
-testurl <- GetFullPBPURL(startyear, testid)
+CleanPBP <- function(dt){
+  names(dt) <- c("event", "clock", "description", "locX", "locY", "opt1", "opt2",
+                 "shot_type", "event_type", "opid", "teamid", "playerid",
+                 "home_score", "visitor_score", "epid", "oftid", "order")
+  
+  return(TRUE)
+}
 
-data_json = jsonlite::fromJSON(txt = testurl)
-data <- data.table(data_json$g$pd)
 
 
-setnames(data, "p", "quarter")
+GrabAndSaveGameData  <- function(season_year, game_id){
+  # Save games by day in season subdirectory
+  if(!dir.exists(season_year))
+    dir.create(season_year)
+  
+  # Get URL
+  url <- GetFullPBPURL(season_year, game_id)
+  
+  # Grab PBP data and clean
+  data_json <- jsonlite::fromJSON(txt = url)
+  data <- data.table(data_json$g$pd)
+  setnames(data, "p", "quarter")
+  dt <- BindFullPBP(data) %>% CleanPBP
+  
+  # Save
+  splitup <- tstrsplit(data_json$g$gcode, "/")
+  game_date <- splitup[[1]]
+  filename <- paste0(splitup[[2]], ".rds")
+  exportdir <- file.path(season_year, game_date)
+  if(!dir.exists(exportdir))
+    dir.create(exportdir)
+  
+  saveRDS(dt, file.path(exportdir, filename))
+}
 
 
-check <- BindFullPBP(data)
-pla_names <- c("event", "clock", "description", "locX", "locY", "opt1", "opt2",
-               "shot_type", "event_type", "opid", "teamid", "playerid",
-               "home_score", "visitor_score", "epid", "oftid", "order")
+
+
+
+
+
+
 
 
 
